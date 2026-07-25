@@ -1,0 +1,17 @@
+# 데이터 원본은 커밋하지 않음 (용량 크고 재현은 다운로드로)
+data/*
+!data/README.md
+
+# 파이썬
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
+# 모델 가중치 등 대용량 산출물
+*.h5
+*.keras
+*.pkl

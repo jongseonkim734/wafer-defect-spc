@@ -1,0 +1,17 @@
+# 코어
+numpy
+pandas
+matplotlib
+scipy
+
+# 머신러닝
+scikit-learn
+
+# 딥러닝 (W3부터 — 유비전랩 TensorFlow 작업 통합)
+tensorflow
+
+# 노트북
+jupyter
+
+# 데이터셋 다운로드용 (Kaggle API 쓸 경우)
+# kaggle
