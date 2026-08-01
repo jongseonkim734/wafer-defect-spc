@@ -39,7 +39,7 @@
 ## 폴더 구조
 ```
 wafer-defect-spc/
-├── README.md            # 이 파일 — DMAIC 진행 상황
+├── README.md            # 분석 단계 진행 상황
 ├── requirements.txt     # 파이썬 패키지
 ├── .gitignore
 ├── data/                # 데이터셋 (원본은 git에 올리지 않음)
