@@ -1,8 +1,7 @@
 # %% [markdown]
-# # 01 · EDA — 웨이퍼맵 첫 탐색
-# # EDA: Exploratory Data Analysis
+# ### 01 · EDA — 웨이퍼맵 첫 탐색
+# ### EDA: Exploratory Data Analysis
 # 목표(킥오프): 분석 모델을 만들기 전에, 데이터가 로드되고, 웨이퍼맵 1장을 그려보면서 생김새, 분포, 결측, 이상, 불균형 등을 짧게 파악.
-# ★ 아래 TODO는 직접 채운다. 막히면 대화에서 로직을 받아 이해 후 타이핑.
 
 # %%
 import numpy as np
