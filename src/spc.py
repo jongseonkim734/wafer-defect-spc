@@ -54,14 +54,14 @@ def xbar_r_limits(subgroups):
     A2, D3, D4 = CONTROL_CONSTANTS[n]
 
     xbar = subgroups.mean(axis=1) # 각 subgroup의 평균을 한 변수(xbar)에 저장
-    r = subgroups.max(axis=1) - subgroups.min(axis=1) # 각 subgroup의 범위를 한 변수(r)에 저장
+    R = subgroups.max(axis=1) - subgroups.min(axis=1) # 각 subgroup의 범위를 한 변수(r)에 저장
 
     xbarbar = xbar.mean() 
-    Rbar = r.mean()
+    Rbar = R.mean()
 
     return {
         "xbar": xbar,
-        "R": r,
+        "R": R,
         "x_center": xbarbar,
         "x_ucl": xbarbar + A2 * Rbar,
         "x_lcl": xbarbar - A2 * Rbar,
