@@ -41,4 +41,12 @@
 - 배운 점(코딩): NumPy 벡터화(`.mean(axis=1)`가 for문을 대신), pandas 다중조건은 각 비교를 `()`로 감싸야 함(`&` 우선순위).
 - 한계/캐비아: SECOM은 단일 공정의 균일 시계열이 아니고 subgroup을 임의(연속 5개)로 잘랐으며, 관리한계선을 같은 데이터로 산출(Phase 1). → 이 관리도는 **SPC 방법론 시연**이지 해당 센서 공정에 대한 품질 판정이 아님.
 - 다음: SECOM pass/fail baseline 분류 + 유효 인자(feature) 선별.
-<!-- 아래로 계속 추가 -->
+
+## 2026-08-06 (W2) - SECOM Baseline
+- SECOM data를 기반으로 pass/fail을 예측하는 baseline model을 만듦
+- 이 과정에서 로지스틱 회귀를 사용하였고, fail f1 = 0.14, fail recal = 0.19의 좋지 않은 결과를 가짐
+- 결과가 별로인 이유는 590 features인데 X_train의 개수가 1253개였기 때문. 즉 1253개의 데이터를 기반으로 590개 값을 정해야 함. 이 비율이 10:1 정도까지는 올라가야 안정적으로 모델을 학습시킬 수 있음.
+- 고로, feature 개수를 줄이거나 X_train 수를 늘려야 하는데, 후자는 SECOM 데이터셋의 한계로 불가능하므로 (내가 집에서 만드는 데이터가 아니므로) feature 중 유효한 것들을 뽑아내는 유효 인자 선별 단계로 넘어가야 함.
+
+## 2026-08-07 (W2) - SECOM Baseline - Effective Feature Selection
+- 
