@@ -49,4 +49,30 @@
 - 고로, feature 개수를 줄이거나 X_train 수를 늘려야 하는데, 후자는 SECOM 데이터셋의 한계로 불가능하므로 (내가 집에서 만드는 데이터가 아니므로) feature 중 유효한 것들을 뽑아내는 유효 인자 선별 단계로 넘어가야 함.
 
 ## 2026-08-07 (W2) - SECOM Baseline - Effective Feature Selection
-- 
+[개념적으로 배운 점]
+- 유효인자 선별 방법에는 Filter, Wrapper, Embedded의 3가지 방식이 있다.
+1. Filter: 각 feature가 얼마나 Pass/Fail과 연관이 있는 지를 점수로 매겨, 해당 점수가 높은 k개의 features만 남기는 방식.
+- 예시: ANOVA F-검정, 상호정보량
+2. Wrapper: feature 조합을 바꿔가며 모델을 반복 학습해 최적 조합 탐색. 정확하지만 느리다는 단점이 있음.
+- 예시: RFE
+3. Embedded: 모델이 학습하면서 스스로 걸러냄.
+- 예시: L1/Lasso가 쓸모없는 계수를 0으로 처리, 트리의 Feature Importance 개념.
+
+[코딩적으로 배운 점]
+- imputer와 scaler는 unsupervised learning으로 fit/transform에 x value만 있으면 되나
+- selector는 supervised learning이니, fit/transform에 y value도 필요하다
+
+[한 일]
+- 우리는 ANOVA F-검정을 선택. 특정 feature가 Pass/Fail 집단에서 평균값이 많이 다른 지를 확인. 많이 다른 feature 상위 k개만 선별.
+- SelectKBest(f_classif, k)로 상위 k개 선별 후 재학습. selector도 train으로만 fit(leakage 방지).
+
+[결과]
+- baseline(590 feat): fail f1=0.14, recall=0.19 (불량 4/21 검출)
+- k=30: f1=0.28, recall=0.71 / k=10: f1=0.33, recall=0.76 (불량 16/21)
+- k-sweep(3~120) 결과 best k=10. 590→10으로 줄여 과적합↓ → 일반화↑.
+- 핵심: recall 0.19→0.76으로 급상승 (품질에서 제일 중요한 "불량 안 놓치기"가 좋아짐). f1도 2배+.
+- 트레이드오프: precision은 여전히 낮음(~0.21, false alarm 다수). 단 반도체 품질은 불량 놓침(FN)이 헛경보(FP)보다 치명적이라 recall 우선 방향은 타당.
+- 산출물: "k vs fail-F1/recall" 곡선 → 향후 README의 핵심 figure 후보.
+
+[다음]
+- (W3) 이상탐지(Isolation Forest/Autoencoder) + WM-811K CNN 불량분류.
