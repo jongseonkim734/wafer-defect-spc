@@ -113,8 +113,8 @@ from sklearn.metrics import f1_score, recall_score
 
 k_nomis = [3, 5, 10, 15, 20, 30, 50, 80, 120]
 f1s, recs = [], []
-for k in k_nomis:
-    sel = SelectKBest(f_classif, k=k)
+for kk in k_nomis:
+    sel = SelectKBest(f_classif, k=kk)
     X_tr_sel = sel.fit_transform(X_train_p, y_train)
     X_te_sel = sel.transform(X_test_p)
     m_sel = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
@@ -123,7 +123,7 @@ for k in k_nomis:
 
     f1s.append(f1_score(y_test, y_pd_sel))
     recs.append(recall_score(y_test, y_pd_sel))
-    print(f"k={k:3d} | fail F1={f1s[-1]:.3f} | fail recall={recs[-1]:.3f}")
+    print(f"k={kk:3d} | fail F1={f1s[-1]:.3f} | fail recall={recs[-1]:.3f}")
 
 plt.figure(figsize=(8, 4))
 plt.plot(k_nomis, f1s, marker="o", label="fail F1")
