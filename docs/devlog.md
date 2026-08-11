@@ -38,6 +38,7 @@
 
 ## 2026-08-05 (W2) — SPC 구현·시각화
 - 한 일: spc.py에 process_capability(Cp/Cpk)·xbar_r_limits(관리도)·out_of_control_points 구현, 02_spc.py에서 SECOM 실열에 적용해 X-bar/R 차트 시각화(이탈점 강조).
+![X-bar chart and R chart](figures/xbar_and_r_chart.png)
 - 배운 점(코딩): NumPy 벡터화(`.mean(axis=1)`가 for문을 대신), pandas 다중조건은 각 비교를 `()`로 감싸야 함(`&` 우선순위).
 - 한계/캐비아: SECOM은 단일 공정의 균일 시계열이 아니고 subgroup을 임의(연속 5개)로 잘랐으며, 관리한계선을 같은 데이터로 산출(Phase 1). → 이 관리도는 **SPC 방법론 시연**이지 해당 센서 공정에 대한 품질 판정이 아님.
 - 다음: SECOM pass/fail baseline 분류 + 유효 인자(feature) 선별.
@@ -70,6 +71,7 @@
 - baseline(590 feat): fail f1=0.14, recall=0.19 (불량 4/21 검출)
 - k=30: f1=0.28, recall=0.71 / k=10: f1=0.33, recall=0.76 (불량 16/21)
 - k-sweep(3~120) 결과 best k=10. 590→10으로 줄여 과적합↓ → 일반화↑.
+![k-sweep(3~120)](figures/secom_feature_k_sweep.png)
 - 핵심: recall 0.19→0.76으로 급상승 (품질에서 제일 중요한 "불량 안 놓치기"가 좋아짐). f1도 2배+.
 - 트레이드오프: precision은 여전히 낮음(~0.21, false alarm 다수). 단 반도체 품질은 불량 놓침(FN)이 헛경보(FP)보다 치명적이라 recall 우선 방향은 타당.
 - 산출물: "k vs fail-F1/recall" 곡선 → 향후 README의 핵심 figure 후보.
