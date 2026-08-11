@@ -1,9 +1,8 @@
 # Unit tests for src/spc.py
 # Run from repo root:  pytest -q
 #
-# HOW TO FILL THIS IN (do the math BY HAND — that is the point):
-# For each TODO, compute the expected value yourself with a calculator,
-# then assert against it. Use pytest.approx for floats.
+# Every expected value below is computed BY HAND in the comments so the
+# assertions are verifiable (and defensible in an interview), not magic numbers.
 
 import numpy as np
 import pytest
@@ -13,32 +12,38 @@ import spc
 
 # --- process_capability -------------------------------------------------
 def test_process_capability_known_values():
-    # A tiny, hand-checkable sample.
-    data = [9, 10, 11]            # mean = 10, sigma(ddof=1) = 1.0
+    # data = [9, 10, 11]
+    #   mean  = (9 + 10 + 11) / 3 = 10.0
+    #   var   = ((9-10)^2 + (10-10)^2 + (11-10)^2) / (3-1) = (1+0+1)/2 = 1.0
+    #   sigma = sqrt(1.0) = 1.0
+    data = [9, 10, 11]
     lsl, usl = 7, 13
 
     result = spc.process_capability(data, lsl, usl)
 
     assert result["mean"] == pytest.approx(10.0)
     assert result["sigma"] == pytest.approx(1.0)
-    # TODO: cp = (usl - lsl) / (6 * sigma) = ?
-    assert result["cp"] == pytest.approx(...)   # <-- fill in
-    # TODO: mean is centered, so cpk == cp here. Confirm and fill in.
-    assert result["cpk"] == pytest.approx(...)  # <-- fill in
+    # cp = (usl - lsl) / (6 * sigma) = (13 - 7) / (6 * 1) = 6/6 = 1.0
+    assert result["cp"] == pytest.approx(1.0)
+    # mean(10) sits exactly at the spec midpoint (7..13 -> 10), so no bias:
+    #   cpu = (13-10)/(3*1) = 1.0 ,  cpl = (10-7)/(3*1) = 1.0 ,  cpk = min = 1.0
+    assert result["cpk"] == pytest.approx(1.0)
 
 
 # --- CONTROL_CONSTANTS --------------------------------------------------
 def test_control_constants_n5():
+    # From the table for n = 5: (A2, D3, D4) = (0.577, 0.0, 2.114)
     A2, D3, D4 = spc.CONTROL_CONSTANTS[5]
     assert A2 == pytest.approx(0.577)
-    # TODO: fill D3, D4 for n=5 from the table
-    assert D3 == pytest.approx(...)  # <-- fill in
-    assert D4 == pytest.approx(...)  # <-- fill in
+    assert D3 == pytest.approx(0.0)
+    assert D4 == pytest.approx(2.114)
 
 
 # --- xbar_r_limits ------------------------------------------------------
 def test_xbar_r_limits_shapes_and_center():
     # 3 subgroups of size 5.
+    #   subgroup means: 50/5=10.0 , 60/5=12.0 , 50/5=10.0
+    #   grand mean (x_center) = (10 + 12 + 10) / 3 = 32/3 = 10.6667
     subgroups = np.array([
         [10, 11, 9, 10, 10],
         [12, 11, 13, 12, 12],
@@ -49,8 +54,7 @@ def test_xbar_r_limits_shapes_and_center():
     # xbar / R should have one value per subgroup (3).
     assert out["xbar"].shape == (3,)
     assert out["R"].shape == (3,)
-    # TODO: compute xbarbar (grand mean) by hand and assert x_center.
-    assert out["x_center"] == pytest.approx(...)  # <-- fill in
+    assert out["x_center"] == pytest.approx(32 / 3)
     # Sanity: UCL must be above center, LCL below.
     assert out["x_ucl"] > out["x_center"] > out["x_lcl"]
 
