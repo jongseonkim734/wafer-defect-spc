@@ -13,5 +13,8 @@ tensorflow
 # 노트북
 jupyter
 
+# 테스트
+pytest
+
 # 데이터셋 다운로드용 (Kaggle API 쓸 경우)
 # kaggle
