@@ -131,7 +131,12 @@ plt.plot(k_nomis, recs, marker="s", label="fail recall")
 plt.axhline(0.14, color="grey", ls="--", lw=1, label="Baseline F1 (all 590 features)")
 plt.xlabel("k (number of selected features)"); plt.ylabel("score")
 plt.title("SECOM: feature count vs fail-class performance")
-plt.legend(); plt.tight_layout(); plt.show()
+plt.legend(); plt.tight_layout()
+
+# save SECOM k-score chart as png
+plt.savefig("../docs/figures/secom_feature_k_sweep.png", dpi=150, bbox_inches="tight")
+
+plt.show()
 
 # Pick optimistic k value as the one with hightest f1 score
 optimistic_k = k_nomis[int(np.argmax(f1s))]

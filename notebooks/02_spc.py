@@ -87,7 +87,12 @@ ax2.axhline(lim["r_lcl"], color="red", ls="--", lw=1)
 ax2.scatter(ooc_r, R[ooc_r], color="red", zorder=5)
 ax2.set_title("R chart"); ax2.set_ylabel("subgroup range"); ax2.set_xlabel("subgroup #")
 
-plt.tight_layout(); plt.show()
+plt.tight_layout()
+
+# Save chart as png
+plt.savefig("../docs/figures/xbar_and_r_chart.png", dpi=150, bbox_inches="tight")
+
+plt.show()
 
 print(f"X-bar 이탈: {len(ooc_x)}개 / R 이탈: {len(ooc_r)}개 / 총 {len(xbar)} subgroup")
 
