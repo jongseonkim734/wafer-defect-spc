@@ -85,3 +85,28 @@ y = np.eye(n_classes, dtype='float32')[y_int]   # 0, 1, 2, 3, 4, 5, 6, 7 -> one-
 
 print("classes:", list(le.classes_))
 print("y_shape:", y.shape)                      # expect (25519, 8)
+
+# %% [markdown]
+# ### 5. Train / Val / Test Stratified Split
+# Rare class (e.g., Near-full only got 149 cases) should be kept its class ratio in every split
+# -> that's why we use Stratified Split
+
+# %%
+from sklearn.model_selection import train_test_split
+
+# 1) Split 20% as Test
+# train_test_split -> Split half every inserted arrays.
+# -> We put three arrays (X, y, y_int) and it is splitted into half
+# -> Get 6 variables.
+X_trainval, X_test, y_trainval, y_test, yi_trainval, yi_test = train_test_split(
+    X, y, y_int, test_size=0.2, stratify=y_int, random_state=42
+)
+
+# 2) Split Train and Val (Val is 20% of trainval)
+X_train, X_val, y_train, y_val, yi_train, yi_val = train_test_split(
+    X_trainval, y_trainval, yi_trainval, test_size=0.2, stratify=yi_trainval, random_state=42
+)
+
+print("train:", X_train.shape[0], "\nval:", X_val.shape[0], "\ntest:", X_test.shape[0])
+
+# %%

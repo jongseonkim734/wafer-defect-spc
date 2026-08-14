@@ -90,3 +90,8 @@
 - 웨이퍼맵은 사이즈가 다양하나, CNN은 고정된 규격을 요구하므로 64*64로 리사이즈한다.
 - 이후 (25519, 64, 64, 1)로 변환한다. 1은 채널의 수로, CNN에서 요구하는 값이다.
 - 8개 실패 라벨의 경우, 텍스트 말고, one-hot으로 변환한다. 이는 softmax 및 categorical_crossentropy와의 합치를 위한 것이다.
+
+## 2026-08-15 - Stratified Split (Train, Val, Test)
+- 불량 케이스 중 Near-full과 같은 경우 149개 밖에 없기 때문에, split 별 비율을 유지하는 Stratified Split을 활용한다.
+- 전체 중 Test를 20%로 먼저 뗀다.
+- 남은 것 중 20%를 Val로 뗀다. 이후 남은 것이 Train 데이터가 된다.
