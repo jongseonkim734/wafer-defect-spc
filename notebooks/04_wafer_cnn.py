@@ -43,4 +43,45 @@ labeled = df[(df["fail_str"] != "unlabeled") & (df["fail_str"] != "none")].copy(
 print("labeled wafers:", len(labeled))
 print(labeled["fail_str"].value_counts())
 
+# %% [markdown]
+# ### 3. 웨이퍼맵 64*64로 리사이즈
+# 웨이퍼맵은 다양한 사이즈로 존재하나 CNN은 고정된 규격을 요구하므로 리사이즈를 진행한다.
+# 각 웨이퍼맵의 셀들은 0, 1, 2의 값을 가진다. (0은 빈공간, 1은 정상, 2는 불량) -> 고로 보간은 진행하지 않는다.
+
 # %%
+from skimage.transform import resize
+
+IMG = 64 # target grid size
+
+def resize_map(wafer_map):
+    m = np.asarray(wafer_map, dtype=float)
+    return resize(
+        m,
+        (IMG, IMG),
+        order=0,                # use nearest-neighbor value (not interpolation)
+        preserve_range=True,    # Preserve 0~2 range (don't autoscale it into 0~1)
+        anti_aliasing=False,    # Turn off aliasing
+    )
+
+X = np.stack([resize_map(m) for m in labeled["waferMap"]])
+X = X / 2.0                 # 0, 1, 2 -> 0.0, 0.5, 1.0
+X = X[..., np.newaxis]      # simply add new axis with full of '1' which is considered as number of channel at CNN. CNN needs the number of channel explicitly.
+
+print("X shape:", X.shape)  # expect (25519, 64, 64, 1)
+
+# %% [markdown]
+# ### 4. 라벨 인코딩
+# 'Center' -> 3 (int) -> [0, 0, 0, 1, 0, 0, 0, 0] (one-hot that softmax + categorical_crossentropy requires)
+# one-hot: just a vector
+# softmax throws 8 possibilities and categorial_crossentropy compares them with one-hot.
+
+# %%
+from sklearn.preprocessing import LabelEncoder
+
+le = LabelEncoder()
+y_int = le.fit_transform(labeled["fail_str"])   # 8 failure classes -> 0, 1, 2, 3, 4, 5, 6, 7                   
+n_classes = len(le.classes_)                    # le.classes_ -> label list (Center, Donut, ..)
+y = np.eye(n_classes, dtype='float32')[y_int]   # 0, 1, 2, 3, 4, 5, 6, 7 -> one-hot
+
+print("classes:", list(le.classes_))
+print("y_shape:", y.shape)                      # expect (25519, 8)
