@@ -78,3 +78,9 @@
 
 [다음]
 - (W3) 이상탐지(Isolation Forest/Autoencoder) + WM-811K CNN 불량분류.
+
+## 2026-08-14 - Load LSWMD data and filter only 8 failures
+[한일]
+- CNN 불량분석을 하기 위해서 LSWMD 데이터를 로드하고, 8개의 오류 케이스만으로 필터링했다.
+- 상당히 많은 데이터가 unlabeled거나 none(불량이 아님)임을 알게 되었다.
+- 이후 이 2D 데이터를 CNN으로 불량분석 할 예정이다.
