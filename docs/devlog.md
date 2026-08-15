@@ -95,3 +95,7 @@
 - 불량 케이스 중 Near-full과 같은 경우 149개 밖에 없기 때문에, split 별 비율을 유지하는 Stratified Split을 활용한다.
 - 전체 중 Test를 20%로 먼저 뗀다.
 - 남은 것 중 20%를 Val로 뗀다. 이후 남은 것이 Train 데이터가 된다.
+
+## 2026-08-15 - CNN Model Define and Training
+- Model define: [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
+- 

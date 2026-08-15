@@ -110,3 +110,49 @@ X_train, X_val, y_train, y_val, yi_train, yi_val = train_test_split(
 print("train:", X_train.shape[0], "\nval:", X_val.shape[0], "\ntest:", X_test.shape[0])
 
 # %%
+# ### 6. CNN 모델 정의
+# [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
+
+# %%
+from tensorflow.keras import layers, models
+
+def build_cnn(input_shape, n_classes):
+    model = models.Sequential([
+        # Preset: Set the input data type of model
+        layers.Input(shape=input_shape),
+        
+        # Block 1: 3x3 size 32 filters, actication function is relu, output size is same as input size.
+        # Repeat it twice. + 2x2 Pooling (reducing the size)
+        layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
+        layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
+        layers.MaxPooling2D((2, 2)),
+
+        # Block 2: 3x3 size 32 filters, actication function is relu, output size is same as input size.
+        # Repeat it twice. + 2x2 Pooling (reducing the size)
+        layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
+        layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
+        layers.MaxPooling2D((2, 2)),
+
+        # 2D vector -> 1D vector
+        layers.Flatten(),
+        # Connect 1D vector with 128 nodes
+        # Use relu to add non-linearity
+        layers.Dense(128, activation="relu"),
+        # Reduce 50% of node (128 -> 64)
+        layers.Dropout(0.5),
+        # Connect 1D vector (with 64 nodes) with n_classes(=8) nodes
+        # Use softmax to make sum as 1
+        layers.Dense(n_classes, activation="softmax"),
+    ])
+
+    # adam: Adaptive Moment Estimation. Weight optimizing algorithm that self-fix the Learning Rate. 
+    # categorial_crossentropy: compare expectation possibility with one-hot values
+    # use accuracy as a metrics
+    model.compile(optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"])
+
+    return model
+
+model = build_cnn((IMG, IMG, 1), n_classes)
+model.summary()
+
+# %%
