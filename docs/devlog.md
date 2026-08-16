@@ -92,10 +92,17 @@
 - 8개 실패 라벨의 경우, 텍스트 말고, one-hot으로 변환한다. 이는 softmax 및 categorical_crossentropy와의 합치를 위한 것이다.
 
 ## 2026-08-15 - Stratified Split (Train, Val, Test)
+[한일]
 - 불량 케이스 중 Near-full과 같은 경우 149개 밖에 없기 때문에, split 별 비율을 유지하는 Stratified Split을 활용한다.
 - 전체 중 Test를 20%로 먼저 뗀다.
 - 남은 것 중 20%를 Val로 뗀다. 이후 남은 것이 Train 데이터가 된다.
 
 ## 2026-08-15 - CNN Model Define and Training
+[한일]
 - Model define: [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
-- 
+- Model Train: balanced weights + EarlyStopping of "val_loss"&restore_best_weights
+
+[결과데이터]
+- 13회차에서 가장 좋은 결과가 나옴. 4회의 patience를 설정하였으므로, 17회에서 학습은 종료됨
+Epoch 13/30
+256/256 ━━━━━━━━━━━━━━━━━━━━ 43s 166ms/step - accuracy: 0.9124 - loss: 0.2104 - val_accuracy: 0.8969 - val_loss: 0.2868

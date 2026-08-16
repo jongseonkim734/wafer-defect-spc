@@ -155,4 +155,31 @@ def build_cnn(input_shape, n_classes):
 model = build_cnn((IMG, IMG, 1), n_classes)
 model.summary()
 
+# %% [markdown]
+# ### 7. 학습 (class_weight로 불균형 보정)
+
+# %%
+from sklearn.utils.class_weight import compute_class_weight
+from tensorflow.keras.callbacks import EarlyStopping
+
+# "balanced": Higher weight for rarer classes
+# -> prevents model learning on only for major classes
+weights = compute_class_weight(
+    "balanced", classes=np.unique(yi_train), y=yi_train,
+)
+class_weight = dict(enumerate(weights))   # Dictionary-ify the weights: {0: 2.5, 1:0.3, ...}
+print(class_weight)
+
+# Stop when val_loss stops improving + give 4 epoch delay on stop + keep the best epoch's weights betweenn all widgets
+early = EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True)
+
+# Where actual training happens
+history = model.fit(
+    X_train, y_train,
+    validation_data=(X_val, y_val),
+    epochs=30,
+    batch_size=64,
+    class_weight=class_weight,
+    callbacks=[early]
+)
 # %%
