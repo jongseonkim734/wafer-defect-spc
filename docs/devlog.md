@@ -106,3 +106,24 @@
 - 13회차에서 가장 좋은 결과가 나옴. 4회의 patience를 설정하였으므로, 17회에서 학습은 종료됨
 Epoch 13/30
 256/256 ━━━━━━━━━━━━━━━━━━━━ 43s 166ms/step - accuracy: 0.9124 - loss: 0.2104 - val_accuracy: 0.8969 - val_loss: 0.2868
+
+## 2026-08-21 - CNN 최종 평가 (per-class F1 + Confusion Matrix)
+[한일]
+- 끝까지 안 건드린 test set으로 최종 평가 진행.
+- accuracy는 불균형에서 착시(다수 클래스만 맞혀도 높게 나옴)가 발생할 수 있어, per-class F1/recall + confusion matrix로 정직하게 측정한다.
+- confusion matrix는 행 기준 정규화(%)로 그려, Edge-Ring(다수 클래스)이 색 범위를 독점하는 문제를 해소.
+
+[결과데이터]
+- accuracy 0.887 / macro F1 0.826 / weighted F1 0.887
+- 소수 클래스도 살아남: Near-full recall 0.967 / F1 0.841, Donut recall 0.901 / F1 0.847
+- 즉, balanced로 학습시킨 CNN 모델이 실제로 효과적이었음을 알 수 있음.
+- per-class F1: Edge-Ring 0.974, Center 0.946, Random 0.891, Edge-Loc 0.864, Donut 0.847, Near-full 0.841, Loc 0.756, Scratch 0.489
+- 약점: Scratch의 F1이 0.489로 유의미하게 낮다. 정규화 confusion matrix 기준, scratch의 40%가 Loc으로 오분류되고 있다.
+![CNN confusion matrix (행 정규화)](figures/wafer_cnn_confusion.png)
+
+[배운점/해석]
+- class_weight는 학습 단계에서 불균형 보정을 개입한 것 + per-class 결과는 그것의 효과를 입증하는 단계. 둘 다 필요하며 상보적이다.
+- Scratch, Loc, Edge-Loc의 경우 공간적으로 비슷해서 모델이 제대로 분류해내지 못 했다. 이는 실제로도 비슷하게 생긴 오류라서 인간도 분류하기 어려움.
+
+[다음]
+- Scratch 개선 방법 확인 (데이터를 증강하거나 해상도를 높이거나)

@@ -29,6 +29,22 @@
 
 > 캐비아: SECOM은 단일 공정의 균일 시계열이 아니라 subgroup을 임의(연속 5개)로 잘랐고, 관리한계선을 같은 데이터로 산출(Phase 1). 이 관리도는 **SPC 방법론 시연**이지 해당 센서 공정의 품질 판정이 아니다. (자세한 근거는 `docs/devlog.md`)
 
+**③ WM-811K 웨이퍼 불량 8종 CNN 분류**
+
+25,519장의 웨이퍼 불량 맵을 64*64로 리사이즈해 CNN 모델로 8종 분류. 불균형(Edge-Ring 9,680장, Near-full 149장)을 보정하기 위해 class_weight="balanced"를 활용
+
+| 지표 | 값 |
+|---|---|
+| accuracy | 0.887 |
+| **macro F1** | **0.826** |
+| 소수 클래스(Near-full, 30장) | recall 0.967 · F1 0.841 |
+| 최약 클래스(Scratch) | F1 0.489 |
+
+- **불균형 보정 검증**: 표본 30장 뿐인 Near-full까지 recall 0.97로 검출 -> class_weight가 소수 클래스를 보정을 잘 해줬음을 per-class로 확인.
+- **오류의 물리적 해석**: Scratch의 40%가 Loc로 오분류. Scratch와 Loc이 서로 공간적으로 유사한 패턴이라 모델의 혼동이 도메인적으로 남득 가능
+
+![WM-811K CNN confusion matrix (행 정규화)](docs/figures/wafer_cnn_confusion.png)
+
 ---
 
 ## 실행 (How to run)

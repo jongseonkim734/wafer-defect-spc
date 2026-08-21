@@ -157,6 +157,7 @@ model.summary()
 
 # %% [markdown]
 # ### 7. 학습 (class_weight로 불균형 보정)
+# 테스트 데이터도 불균형한 데이터이므로, CNN 학습 시에도 불균형을 보정해서 진행한다.
 
 # %%
 from sklearn.utils.class_weight import compute_class_weight
@@ -182,4 +183,40 @@ history = model.fit(
     class_weight=class_weight,
     callbacks=[early]
 )
+# %% [markdown]
+# ### 8. 평가 - per-class F1 + confusion matrix
+# 7번에서는 학습을 불균형 보정을 통해 진행했다면, 8번에서는 평가 시 불균형 착시를 방지하기 위해
+# 다수 class만 맞춰도 점수가 높앙지는 accuracy 대신
+# 소수 클래스를 실제로 잡았는 지 더 정확히 파악하기 위해 per-class로 확인한다.
+
+# %%
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+
+# 사용되지 않은 테스트 데이터(X_test)를 기반으로 CNN 모델이 y값 예측(y_pred)을 진행한다.
+# CNN 모델 정의에서, 마지막에 Softmax를 활용했는데,
+# 그 값 중 가장 큰 값(axis=1)을 y_pred로 규명한다.
+y_pred = model.predict(X_test).argmax(axis=1)
+
+# 클래스 별 F1 report를 출력한다.
+# 숫자 대신 실제 라벨명(le.classes_)을 활용한다.
+print(classification_report(
+    yi_test,
+    y_pred,
+    target_names=le.classes_,
+    digits=3,
+))
+
+# Confusion matrix(혼동행렬)를 그려내고 저장한다.
+# 숫자 대신 실제 라벨명(le.classes_)을 활용한다.
+# 행(True Label) 기준 정규화를 진행한다. 각 행의 합이 100%가 되도록.
+ConfusionMatrixDisplay.from_predictions(
+    yi_test, y_pred,
+    display_labels=le.classes_,
+    xticks_rotation=45, cmap="Blues",
+    normalize="true", values_format=".0%",
+)
+plt.tight_layout()
+plt.savefig("../docs/figures/wafer_cnn_confusion.png", dpi=150, bbox_inches="tight")
+plt.show()
+
 # %%
