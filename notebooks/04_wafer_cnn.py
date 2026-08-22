@@ -114,7 +114,7 @@ print("train:", X_train.shape[0], "\nval:", X_val.shape[0], "\ntest:", X_test.sh
 # [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
 
 # %%
-from tensorflow.keras import layers, models
+from keras import layers, models
 
 def build_cnn(input_shape, n_classes):
     model = models.Sequential([
@@ -161,7 +161,7 @@ model.summary()
 
 # %%
 from sklearn.utils.class_weight import compute_class_weight
-from tensorflow.keras.callbacks import EarlyStopping
+from keras.callbacks import EarlyStopping
 
 # "balanced": Higher weight for rarer classes
 # -> prevents model learning on only for major classes
