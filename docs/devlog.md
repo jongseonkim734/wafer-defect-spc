@@ -146,3 +146,20 @@ Epoch 13/30
 
 [다음]
 - 경험기술서 2편 작성(양산기술 프레이밍) — Grad-CAM 그림을 ② AI 문제해결 근거로 사용.
+
+## 2026-08-22 (part 2) - 데이터 증강 실험 (Scratch 개선 시도 → 의미 있는 실패)
+[한 일]
+- Grad-CAM이 시사한 "Scratch의 형태 다양성 부족"을 겨냥해 회전/반전 증강(ImageDataGenerator)으로 train 데이터만 증강, class_weight 유지하고 새 모델(model_augmentated) 재학습. test는 원본으로 A/B 비교.
+
+[결과 - 겨냥한 지표는 개선됐으나 전체는 악화]
+- Scratch→Loc 오분류: 33.6% → 9.2% (겨냥한 지표는 개선됨)
+- 그러나 macro F1: 0.833 → 0.719, 모든 클래스 F1이 하락. 특히 Loc 0.737→0.402, Donut 0.869→0.711, Near-full 0.842→0.714.
+- Scratch F1조차 0.535→0.430으로 하락: Scratch→Loc(recall쪽)은 줄었지만 반대로 **Loc→Scratch가 40%로 폭증** → Scratch 예측이 오염돼 precision 하락 → F1 하락.
+![CNN confusion matrix (증강 후, 행 정규화)](figures/wafer_cnn_confusion_aug.png)
+
+[배운 점 - 핵심 자산]
+- "증강 = 항상 이득"이 아니다.
+- 진짜 교훈: Scratch(가는 선)와 Loc(국소 덩어리)은 64×64에서 형태가 뭉개져 근본적으로 얽혀 있다. 문제의 본질은 "방향 불변성"이 아니라 **형태 해상도**일 가능성.
+
+[다음 후보]
+- 해상도↑(64→96/128): 가는 선 vs 덩어리를 구분할 형태 정보 확보.

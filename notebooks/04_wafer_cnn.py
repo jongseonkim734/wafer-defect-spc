@@ -114,7 +114,7 @@ print("train:", X_train.shape[0], "\nval:", X_val.shape[0], "\ntest:", X_test.sh
 # [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
 
 # %%
-from keras import layers, models
+from tensorflow.keras import layers, models
 
 def build_cnn(input_shape, n_classes):
     model = models.Sequential([
@@ -161,7 +161,7 @@ model.summary()
 
 # %%
 from sklearn.utils.class_weight import compute_class_weight
-from keras.callbacks import EarlyStopping
+from tensorflow.keras.callbacks import EarlyStopping
 
 # "balanced": Higher weight for rarer classes
 # -> prevents model learning on only for major classes
@@ -302,4 +302,118 @@ plt.tight_layout()
 plt.savefig("../docs/figures/wafer_cnn_gradcam.png", dpi=150, bbox_inches="tight")
 plt.show()
 
+# %% [markdown]
+# ### 11. 데이터 증강 정의 (회전 + 반전) - Scratch 개선 실험
+# Grad-CAM에서 확인한 것 -> CNN 모델이 Scratch 위치는 맞히나, 선형 궤적이라는 형태를 살리지 못 해 Loc으로 오분류.
+# -> 원본을 회전시키거나 반전시켜 Scratch의 방향 및 위치 다양성이 강화된 상태에서 다시 학습 시키는 게 목적.
+# 웨이퍼는 원형이므로, 회전 및 반전은 Train 데이터를 물리적으로 비합리적으로 오염시키는 것이 아님.
+
+# %%
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+# 회전 + 반전. 회전으로 모서리에 생기는 빈 공간은 0(빈 공간에 해당하는 값)으로 채움.
+datagen = ImageDataGenerator(
+    rotation_range = 180,       # 180도 회전. 변경시킬 수 있음.
+    horizontal_flip = True,     # 좌우 반전
+    vertical_flip = True,       # 상하 반전
+    fill_mode = "constant",     # 빈 공간은 cval로 채움
+    cval = 0.0,                 # 상수는 0
+)
+
+# Train data에만 회전 + 반전 적용.
+# flow는 X값을 필수로 요구하고 y값은 옵션이다. 학습용이라 y값도 매개변수에 넣어 보냄.
+# batch_size는 한 번에 증강할 wafer map 이미지의 장 수.
+train_gen = datagen.flow(X_train, y_train, batch_size=64, seed=42)
+
+# 테스트: 실제 분류가 Scratch인 1장을 여러 번 증강 시도.
+# 테스트 용이라 flow에 y 값을 넣지 않음.
+sc = le.transform(["Scratch"])[0]
+one = X_train[yi_train == sc][0:1]          # (1, 64, 64, 1)
+augmentation_iter = datagen.flow(one, batch_size=1, seed=1)
+
+# 테스트 내용 시각화.
+fig, axes = plt.subplots(1, 5, figsize=(12, 3))
+axes[0].imshow(one[0, :, :, 0], cmap="gray")
+axes[0].set_title("original")
+axes[0].axis("off")
+for k in range(1, 5):
+    aug = next(augmentation_iter)[0]
+    axes[k].imshow(aug[:, :, 0], cmap="gray")
+    axes[k].set_title(f"aug {k}")
+axes[k].axis("off")
+plt.tight_layout()
+plt.show()
+
+# %% [markdown]
+# ### 12. 증강 적용 재학습
+# 비교의 공정성을 위해 모델 구조/epoch/class_weight는 셀 6~7과 동일하게 두고, "증강 여부"만 바꾼다.
+# 기존 model은 그대로 두고 새 model_augmentated를 학습시킨다. (셀 6~7의 모델과 A/B 비교하기 위함)
+
+# %%
+# 증강된 새 모델 및 그의 조기 종료 조건(기존 모델과 동일한 조건).
+model_augmentated = build_cnn((IMG, IMG, 1), n_classes)
+early_augmentated = EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True)
+
+# 증강된 데이터(train_gen)를 적용한 학습
+# 검증은 증강되지 않은 원본을 사용하며, 불균형 보정 등 타 조건은 그대로 유지한다.
+# stpes_per_epoch는 1 epoch에 뽑을 batch 개수이다. 이는 전체 학습 장 수를 batch_size로 나눈 값이다.
+# 이를 사용하는 이유는 train_gen은 무한히 반복되기 때문이다.
+# 즉, (30회인) epoch마다 (매번 조금씩 증강된) 전체 데이터 길이만큼을 학습하는데, 이를 64개씩 끊어서 학습한다고 생각하면 된다.
+steps = len(X_train) // 64
+history_augmentation = model_augmentated.fit(
+    train_gen,
+    validation_data=(X_val, y_val),
+    epochs=30,
+    steps_per_epoch=steps,
+    class_weight=class_weight,
+    callbacks=[early_augmentated],
+)
+
+# %% [markdown]
+# ### 13. 소수 클래스(Scratch) 데이터 증강 전후 (model vs model_augmentation) 비교
+# 핵심 포인트: Scratch 클래스의 F1과 Scratch <-> Loc 오분류율이 개선되었는지.
+
+# %%
+# 실제 값이 Scratch랑 Loc인 wafer map.
+sc, lo = le.transform(["Scratch"])[0], le.transform(["Loc"])[0]
+
+# 두 모델을 (증강과 무관한 수정되지 않은 원본 데이터인) Test 데이터를 이용해 비교
+pred_base = model.predict(X_test, verbose=0).argmax(axis=1)
+pred_augmentation = model_augmentated.predict(X_test, verbose=0).argmax(axis=1)
+
+# 요약 결과를 내뱉는 함수
+# rep은 F1 report 결과를 담는다.
+# mask는 실제 라벨이 Scratch인 Test 데이터 수
+# sc_to_lo는 그 중 Loc로 오분류된 비율
+def summarize(pred, tag):
+    rep = classification_report(yi_test, pred, target_names=le.classes_, digits=3, output_dict=True)
+
+    mask = (yi_test == sc)
+    sc_to_lo = np.mean(pred[mask] == lo)
+
+    print(f"[{tag}] macro F1={rep['macro avg']['f1-score']:.3f} | " f"Scratch F1={rep['Scratch']['f1-score']:.3f} | Scratch->Loc={sc_to_lo:.1%}")
+    return rep
+
+
+# 비교 결과 출력 1 - 요약
+print("=== 증강 전/후 비교 ===")
+rep_base = summarize(pred_base, "before(aug X)")
+rep_augmentation = summarize(pred_augmentation, "after(aug O)")
+
+# 비교 결과 출력 2 - class 별 F1 전후 변화
+print("\nclass별 F1 (before -> after)")
+for c in le.classes_:
+    b, a = rep_base[c]["f1-score"], rep_augmentation[c]["f1-score"]
+    print(f"  {c:10s}: {b:.3f} -> {a:.3f}  ({a-b:+.3f})")
+
+# 증강 후 confusion matrix 저장 및 DP 및 이미지 저장
+ConfusionMatrixDisplay.from_predictions(
+    yi_test, pred_augmentation,
+    display_labels=le.classes_,
+    xticks_rotation=45, cmap="Blues",
+    normalize="true", values_format=".0%",
+)
+plt.tight_layout()
+plt.savefig("../docs/figures/wafer_cnn_confusion_aug.png", dpi=150, bbox_inches="tight")
+plt.show()
 # %%
