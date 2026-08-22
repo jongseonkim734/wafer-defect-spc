@@ -219,4 +219,87 @@ plt.tight_layout()
 plt.savefig("../docs/figures/wafer_cnn_confusion.png", dpi=150, bbox_inches="tight")
 plt.show()
 
+# %% [markdown]
+# ### 9. Grad-CAM 준비 - CNN 모델이 "어디를 보고 판단하는 지" 시각화하기.
+# Grad-CAM: Gradient-weighted Class Activation Mapping. 딥러닝 모델이 이미지의 어느 부분을 보고 판단을 내렸는 지 시각적으로 보여주는 AI 기법.
+
+# %%
+import tensorflow as tf
+
+# 네 번째(마지막) Conv2D 층 이름 탐색 (수동으로 이름을 부여하지 않았으나 Sequential이라서 이름이 자동 부여)
+last_conv_layer = [l for l in model.layers if isinstance(l, layers.Conv2D)][-1].name
+print("마지막 Conv2D 층:", last_conv_layer)
+
+# grad_model: 입력값(inp)을 넣으면 마지막 Conv2D 레이어의 출력 데이터와 최종 예측을 함께 반환하는 객체.
+inp = tf.keras.Input(shape=(IMG, IMG, 1))   # 64*64*1채널 웨이퍼 맵이 들어갈 입력 텐서 정의
+x = inp                                     # 임시 변수 x 정의
+conv_output = None                          # 빈 conv_output 정의
+for layer in model.layers:                  # 학습된 layer에 x 재통과
+    x = layer(x)                            
+    if layer.name == last_conv_layer:       # 마지막 Conv2D 레이어의 출력 데이터를 가로채 conv_output에 저장
+        conv_output = x
+grad_model = models.Model(inp, [conv_output, x])
+
+
+def make_gradcam_heatmap(img_array, grad_model, pred_index=None):
+    with tf.GradientTape() as tape:
+        conv_out, preds = grad_model(img_array)             # grad_model에 실제 img_array를 넣은 결과를 conv_out, preds에 저장
+        if pred_index is None:                              # pred_index가 없으면 예측 인덱스 사용
+            pred_index = tf.argmax(preds[0])
+        class_score = preds[:, pred_index]                  # 예측 인덱스의 확률값을 class_score에 저장
+
+    # 예측 점수에 대한 Conv2D 특징맵의 gradient
+    grads = tape.gradient(class_score, conv_out)            # class_score를 도출하는 데 사용된 마지막 출력 데이터(conv_out)의 픽셀 별 영향력(기울기)을 편미분하여 도출
+    # print("debug(grads): ", grads)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))    # 픽셀 별 영향력의 공간적 평균을 내, 채널(8개) 마다 하나의 값으로 변환
+    # print("debug(pooled_grads): ", pooled_grads.shape)
+    conv_out = conv_out[0]                                  # (1, H, W, C) -> (H, W, C)
+    # print("debug(conv_out): ", conv_out)
+    heatmap = conv_out @ pooled_grads[..., tf.newaxis]      # 픽셀 별 영향력과 채널 단일 값(pooled_grads)를 행렬곱 -> 가능성이 높은 채널(불량 케이스)의 픽셀 정보가 증폭. -> (H, W, 1)
+    # print("debug(heatmap): ", heatmap)
+    heatmap = tf.squeeze(heatmap)                           # (H, W, 1) -> (H, W)
+    # print("debug(heatmap): ", heatmap)
+    heatmap = tf.maximum(heatmap, 0) / (tf.reduce_max(heatmap) + 1e-8) # 음수값 제거 및 0~1 정규화
+    # print("debug(heatmap): ", heatmap)
+    # print("debug(heatmap.numpy()): ", heatmap.numpy())
+    return heatmap.numpy()
+
+# %% [markdown]
+# ### 10. 원본 위에 히트맵을 겹쳐 시각화
+
+# %%
+# 전체 test 예측 한 번만 계산 (인덱스 선택 및 시각화에 재사용)
+y_pred_all = model.predict(X_test, verbose=0).argmax(axis=1)
+
+# 오분류 예시 인덱스 찾기: 실제 Scratch인데 Loc로 예측된 것
+# 해당 케이스 중, 앞 5개만 추출해서 보여준다.
+sc, lo = le.transform(["Scratch"])[0], le.transform(["Loc"])[0]
+confused = np.where((yi_test == sc) & (y_pred_all == lo))[0]
+print("Scratch -> Loc 오분류 예시 인덱스:", confused[:5])
+
+def show_gradcam(i, ax_map, ax_cam):
+    img = X_test[i:i+1]                                         # (1, 64, 64, 1)
+    heatmap = make_gradcam_heatmap(img, grad_model)
+
+    # 왼쪽: 원본 웨이퍼맵
+    ax_map.imshow(img[0, :, :, 0], cmap="gray")
+    ax_map.set_title(f"true: {le.classes_[yi_test[i]]}")
+    ax_map.axis("off")
+
+    # 오른쪽: 원본 웨이퍼맵 + 히트맵 (32 -> 64 자동 확대)
+    # jet: blue -> red. 빨간색일수록 AI가 판단에 더 참고한(활성화한) 부분이라는 뜻.
+    ax_cam.imshow(heatmap, cmap="jet", alpha=0.5, extent=(0, IMG, IMG, 0), interpolation="bilinear")
+    ax_cam.set_title(f"pred: {le.classes_[y_pred_all[i]]}")
+    ax_cam.axis("off")
+
+# 보고 싶은 test 인덱스 (원하는 인덱스로 변경 및 추가 가능)
+idxs = [confused[0], confused[3], confused[4]]
+fig, axes = plt.subplots(len(idxs), 2, figsize=(6, 3 * len(idxs)))
+for row, i in enumerate(np.atleast_1d(idxs)):
+    show_gradcam(i, axes[row, 0], axes[row, 1])
+
+plt.tight_layout()
+plt.savefig("../docs/figures/wafer_cnn_gradcam.png", dpi=150, bbox_inches="tight")
+plt.show()
+
 # %%

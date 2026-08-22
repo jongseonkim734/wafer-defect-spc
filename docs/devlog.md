@@ -127,3 +127,22 @@ Epoch 13/30
 
 [다음]
 - Scratch 개선 방법 확인 (데이터를 증강하거나 해상도를 높이거나)
+
+## 2026-08-22 - Grad-CAM (모델이 보는 근거 시각화)
+[한일]
+- 08/21에서 확인한 최대 약점 Scratch→Loc 오분류가 "왜" 일어나는지 Grad-CAM으로 확인.
+- 마지막 Conv2D(conv2d_3)의 특징맵을, 예측 클래스 점수에 대한 gradient로 가중합 → 어느 영역이 그 예측을 밀었는지 히트맵으로 시각화.
+- Scratch→Loc 오분류 test 인덱스 [27, 89, 108, 112, 149] 중 [0,3,4]번을 시각화. Scratch↔Edge-Loc 조합으로도 바꿔 돌려 재현성 확인.
+
+[결과/해석]
+- 세 사례 모두 히트맵이 노이즈가 아니라 **실제 스크래치 궤적**에 집중됨 → 모델은 결함 위치 자체는 옳게 짚음.
+- 다만 스크래치의 **국소 구간(짧고 뭉친 부분)**에 반응 → 선형 궤적을 "국소 덩어리(Loc)"로 해석. 즉 오류의 원인은 오작동이 아니라 **Scratch↔Loc의 형태적 경계 모호성**.
+- 공간적으로 비슷하다는 것의 **시각적 근거**가 됨. Grad-CAM이 도메인 해석을 뒷받침.
+![WM-811K CNN Grad-CAM (Scratch→Loc 오분류)](figures/wafer_cnn_gradcam.png)
+
+[트러블슈팅]
+- Keras 3의 Sequential은 내부 층의 .output 심볼릭 텐서가 없어 `Model(model.inputs, [layer.output, model.output])`가 "never been called"로 실패.
+  → 새 Input을 model.layers에 다시 통과시켜 (마지막 conv 출력, 최종 예측)을 뱉는 grad_model을 재구성하는 방식으로 해결(가중치 공유).
+
+[다음]
+- 경험기술서 2편 작성(양산기술 프레이밍) — Grad-CAM 그림을 ② AI 문제해결 근거로 사용.

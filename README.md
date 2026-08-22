@@ -45,6 +45,10 @@
 
 ![WM-811K CNN confusion matrix (행 정규화)](docs/figures/wafer_cnn_confusion.png)
 
+- **Grad-CAM으로 오류 근거 검증**: Scratch→Loc 오분류 사례의 히트맵이 노이즈가 아니라 실제 스크래치 궤적에 집중 → 모델은 결함 위치를 옳게 짚되, 선형 궤적을 국소 덩어리(Loc)로 해석. 오류의 원인이 오작동이 아니라 **형태적 경계 모호성**임을 시각적으로 확인.
+
+![WM-811K CNN Grad-CAM (Scratch→Loc 오분류)](docs/figures/wafer_cnn_gradcam.png)
+
 ---
 
 ## 실행 (How to run)
