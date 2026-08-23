@@ -31,23 +31,36 @@
 
 **③ WM-811K 웨이퍼 불량 8종 CNN 분류**
 
-25,519장의 웨이퍼 불량 맵을 64*64로 리사이즈해 CNN 모델로 8종 분류. 불균형(Edge-Ring 9,680장, Near-full 149장)을 보정하기 위해 class_weight="balanced"를 활용
+25,519장의 웨이퍼 불량 맵을 64×64로 리사이즈해 CNN 모델로 8종 분류. 불균형(Edge-Ring 9,680장, Near-full 149장)을 보정하기 위해 class_weight="balanced"를 활용.
+
+> 불균형 데이터라 accuracy는 다수 클래스 착시가 있어, **macro F1을 주지표**로 두고 per-class로 정직하게 평가한다.
 
 | 지표 | 값 |
 |---|---|
-| accuracy | 0.887 |
-| **macro F1** | **0.826** |
-| 소수 클래스(Near-full, 30장) | recall 0.967 · F1 0.841 |
-| 최약 클래스(Scratch) | F1 0.489 |
+| **macro F1** (주지표) | **0.842** |
+| 소수 클래스(Near-full, 30장) | recall 0.97 |
+| 최약 클래스(Scratch) | recall 0.57 · F1 0.568 |
 
-- **불균형 보정 검증**: 표본 30장 뿐인 Near-full까지 recall 0.97로 검출 -> class_weight가 소수 클래스를 보정을 잘 해줬음을 per-class로 확인.
-- **오류의 물리적 해석**: Scratch의 40%가 Loc로 오분류. Scratch와 Loc이 서로 공간적으로 유사한 패턴이라 모델의 혼동이 도메인적으로 남득 가능
+- **불균형 보정 검증**: 표본 30장 뿐인 Near-full까지 recall 0.97로 검출 → class_weight가 소수 클래스를 잘 보정했음을 per-class로 확인.
+- **오류의 물리적 해석**: Scratch의 약 33%가 Loc로 오분류. Scratch와 Loc이 공간적으로 유사한 패턴이라 모델의 혼동이 도메인적으로 납득 가능.
 
 ![WM-811K CNN confusion matrix (행 정규화)](docs/figures/wafer_cnn_confusion.png)
 
 - **Grad-CAM으로 오류 근거 검증**: Scratch→Loc 오분류 사례의 히트맵이 노이즈가 아니라 실제 스크래치 궤적에 집중 → 모델은 결함 위치를 옳게 짚되, 선형 궤적을 국소 덩어리(Loc)로 해석. 오류의 원인이 오작동이 아니라 **형태적 경계 모호성**임을 시각적으로 확인.
 
 ![WM-811K CNN Grad-CAM (Scratch→Loc 오분류)](docs/figures/wafer_cnn_gradcam.png)
+
+**④ Scratch 개선 실험 2종 — 공정한 A/B, 그리고 정직한 결론**
+
+Grad-CAM 진단을 바탕으로 두 가지 처방을 **동일 조건 A/B**로 검증했으나, 둘 다 baseline을 넘지 못했다.
+
+| 실험 | 가설 | 결과 |
+|---|---|---|
+| 회전/반전 증강 | 방향 불변성을 학습해 Scratch 다양성 확보 | Scratch→Loc은 줄었으나 Loc→Scratch가 폭증, 전 클래스 F1 하락(순손실) |
+| 해상도↑ (64→96) | 가는 선 형태를 더 보존 | macro 0.842→0.807, Scratch F1 0.568→0.457 (64 완승) |
+
+- **결론**: Scratch↔Loc 혼동은 전처리로 지울 수 있는 인공물이 아니라, **이 데이터·구조 규모에서의 진짜 형태적 모호성**이다. baseline(64 + class_weight)이 견고함을 두 실험이 역으로 입증. 진짜 해결은 더 깊은/attention 구조 또는 Scratch 라벨 확충 방향으로 남긴다. (상세: `docs/devlog.md` 08/22)
+- 부수 수확: 큰 모델에서 val_loss·val_accuracy가 어긋나 EarlyStopping이 undertrain된 모델을 복원하는 현상을 발견하고, monitor를 분류 품질(val_accuracy)에 맞게 교정.
 
 ---
 
