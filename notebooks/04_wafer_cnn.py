@@ -455,4 +455,63 @@ ConfusionMatrixDisplay.from_predictions(
 plt.tight_layout()
 plt.savefig("../docs/figures/wafer_cnn_confusion_aug.png", dpi=150, bbox_inches="tight")
 plt.show()
+
+# %% [markdown]
+# ### 14. 3번째 및 4번째 Scratch 교정 시도. Hough 직선성 피처 탐색 or Elongation 종횡비 피처 탐색.
+# Soulart에서, SVM 모델을 개선할 때, 특정 피처를 기반으로 cheekPuff 여부를 연산하였다. 이와 비슷한 접근을 해보겠다.
+# Hough 가설: Scratch는 물리적으로 선이라서, 직선 검출(Hough)에 강하게, Loc은 약하게 반응할 것이다.
+# Elongation 가설: Scratch의 종횡비는 다른 불량 클래스의 그것들과 유의미한 차이가 날 것이다.
+# 본(14번) 셀은 CNN 모델에 Hough/Elongation을 넣기 전에 이 피처가 실제로 Scratch를 다른 클래스(주로 Loc)와 분리하는 지 분포로 먼저 검증한다.
+# 본 테스트는 1, 2번째 Scratch 교정과 무관하므로, IMG=64이며, 데이터 증강은 영향을 미치지 않는다.
+
+# %%
+from skimage.transform import probabilistic_hough_line
+
+# 불량 픽셀(0, 0.5, 1 중 1)만을 대상(mask)으로 직선 선분들(lines)을 검출하고, 선분들의 길이들(lengths) 중 최댓값을 점수로 반환한다.
+def line_ness(img2d):
+    mask = (img2d >= 0.75)
+    lines = probabilistic_hough_line(
+        mask, threshold=5, line_length=5, line_gap=2,
+    )
+    if not lines:
+        return 0.0
+    lengths = [np.hypot(x1 - x0, y1 - y0) for (x0, y0), (x1, y1) in lines]
+    return max(lengths)
+
+# 불량 픽셀(0, 0.5, 1 중 1)만을 대상(ys, xs)으로, 그 선분들의 종횡비를 계산.
+def elongation(img2d):
+    ys, xs = np.where(img2d >= 0.75)
+    if len(xs) < 5:
+        return 0.0
+
+    coords = np.stack([xs, ys], axis=1).astype(float)
+    coords -= coords.mean(axis=0)
+    evals = np.linalg.eigvalsh(np.cov(coords, rowvar=False))
+    evals = np.clip(evals, 1e-9, None)
+    return float(np.sqrt(evals[1] / evals[0]))
+
+# line_ness와 elongation 간의 분기점.
+# selected_feature_text = "line_ness"
+selected_feature_text = "elongation"
+selected_feature = elongation if selected_feature_text == "elongation" else line_ness
+
+# test set 전체에 대해 line_ness 혹은 elongation 계산
+selected_scores = np.array([selected_feature(X_test[i, :, :, 0]) for i in range(len(X_test))])
+
+# 클래스 별 분포 요약 결과 출력 (line_ness 혹은 elongation)
+import pandas as pd
+order = list(le.classes_)
+dfp = pd.DataFrame({"class": [le.classes_[c] for c in yi_test], selected_feature_text: selected_scores})
+print(dfp.groupby("class")[selected_feature_text].agg(["mean", "median"]).reindex(order))
+
+# 클래스 별 boxplot (Scratch가 높을 때만 Hough/Elongation 피쳐 유효)
+fig, ax = plt.subplots(figsize=(9, 4))
+ax.boxplot([dfp[dfp["class"] == c][selected_feature_text].values for c in order], tick_labels=order)
+ax.set_ylabel(selected_feature_text)
+ax.set_title("Feature by class (higher for Scratch means feature works)")
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.savefig(f"../docs/figures/wafer_{selected_feature_text}.png", dpi=150, bbox_inches="tight")
+plt.show()
+
 # %%
