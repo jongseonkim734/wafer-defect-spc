@@ -163,3 +163,26 @@ Epoch 13/30
 
 [다음 후보]
 - 해상도↑(64→96/128): 가는 선 vs 덩어리를 구분할 형태 정보 확보.
+
+## 2026-08-23 - 해상도 증가 실험 (IMG = 64 vs IMG = 96) → 실패
+[한일]
+- Grad-CAM 재해석("Scratch 선이 64에서 뭉개짐")을 겨냥해 IMG=64→96으로 올려 재학습·평가. 증강과는 별도로 진행. 즉, 이번에 증강은 적용하지 않음.
+- 처음엔 96이 val_loss EarlyStopping(patience=4)에 걸려 epoch 5에서 조기 롤백(undertrain) → 64와 학습 정도가 달라 불공정. 원인: **val_loss와 val_accuracy의 불일치**(큰 모델이 loss상 일찍 과적합). → EarlyStopping을 `monitor="val_accuracy", patience=6`로 교체하고 **64·96 동일 조건**으로 재학습해 공정 비교.
+
+[결과 - 동일 조건, 64 전 지표 완승]
+- [64] macro F1=0.842 | Scratch F1=0.568 | Loc F1=0.747 | Scratch→Loc=32.8% | Loc→Scratch=9.7%
+- [96] macro F1=0.807 | Scratch F1=0.457 | Loc F1=0.712 | Scratch→Loc=44.5% | Loc→Scratch=9.5%
+- 해상도↑는 오히려 해로웠다(Scratch F1 0.568→0.457, Scratch→Loc 32.8%→44.5%).
+![CNN confusion matrix (IMG=96, 행 정규화)](figures/wafer_cnn_confusion_96.png)
+
+[해석 - 왜 96이 더 나빴나]
+1. **용량 대비 데이터 부족(과적합)**: 입력↑ → Flatten→Dense 파라미터 폭증인데 데이터는 그대로 → 과적합, 표본 적은 Scratch가 최대 피해.
+2. **구조를 함께 안 키움**: conv 블록·필터 수(32)는 그대로 두고 해상도만 올림 → 얕은 4-conv 망이 길어진 가는 선을 "선" 개념으로 통합할 깊이 부족. "해상도↑ = 형태 파악↑"이 아니며, 구조(깊이·필터)를 함께 키워야 의미.
+
+[종합 결론 - 핵심 자산]
+- 원칙 있는 처방 2개(증강=불변성, 해상도=형태 정보)를 **공정 A/B로 검증했더니 둘 다 baseline(64+class_weight)을 못 넘음.**
+- → baseline이 견고하고, **Scratch↔Loc 혼동은 전처리로 지울 인공물이 아니라 이 데이터·구조 규모에서의 진짜 형태적 모호성.** 진짜 해결은 (더 깊은/attention 구조) 또는 (Scratch 라벨 확충)이며 이 프로젝트 범위 밖.
+- 부수 수확: EarlyStopping이 val_loss/val_acc 불일치로 큰 모델을 조기에 잘라 undertrain시키는 걸 발견하고 monitor를 목표(분류 품질)에 맞게 교체한 것.
+
+[다음]
+- 실험 종료. 경험기술서 작성으로 이동(08/24 밤~). 이 두 실패+baseline 견고성 서사를 ② AI 문제해결의 "검증·해석"으로 사용.

@@ -29,7 +29,7 @@ print(df.columns.tolist())
 
 # %% [markdown]
 # ### 2. 8종 불량 패턴만 필터 + 분포 확인
-# failureType is a nested array -> unwrap to a plain string.
+# failureType이 nested array라서 plain String으로 변환한다.
 
 # %%
 def label_str(x):
@@ -44,65 +44,63 @@ print("labeled wafers:", len(labeled))
 print(labeled["fail_str"].value_counts())
 
 # %% [markdown]
-# ### 3. 웨이퍼맵 64*64로 리사이즈
+# ### 3. 웨이퍼맵을 규정한 사이즈(=IMG)로 리사이즈
 # 웨이퍼맵은 다양한 사이즈로 존재하나 CNN은 고정된 규격을 요구하므로 리사이즈를 진행한다.
 # 각 웨이퍼맵의 셀들은 0, 1, 2의 값을 가진다. (0은 빈공간, 1은 정상, 2는 불량) -> 고로 보간은 진행하지 않는다.
 
 # %%
 from skimage.transform import resize
 
-IMG = 64 # target grid size
+# 우리가 규정한 사이즈
+IMG = 64
+# IMG = 96    # CNN 모델을 증강하기 위해 회전/반전 이후 이미지 해상도 증가라는 2번째 방법을 시도.
 
 def resize_map(wafer_map):
     m = np.asarray(wafer_map, dtype=float)
     return resize(
         m,
         (IMG, IMG),
-        order=0,                # use nearest-neighbor value (not interpolation)
-        preserve_range=True,    # Preserve 0~2 range (don't autoscale it into 0~1)
-        anti_aliasing=False,    # Turn off aliasing
+        order=0,                # 보간을 사용하지 않고, 최근접 이웃의 값을 사용.
+        preserve_range=True,    # 0, 1, 2의 범위를 유지.
+        anti_aliasing=False,
     )
 
 X = np.stack([resize_map(m) for m in labeled["waferMap"]])
-X = X / 2.0                 # 0, 1, 2 -> 0.0, 0.5, 1.0
-X = X[..., np.newaxis]      # simply add new axis with full of '1' which is considered as number of channel at CNN. CNN needs the number of channel explicitly.
+X = X / 2.0                 # 0, 1, 2를 0.0, 0.5, 1.0로 변환.
+X = X[..., np.newaxis]      # CNN은 채널 수를 명시적으로 요구하므로, 채널 수를 의미하는 1로 채워진 새 축을 추가.
 
-print("X shape:", X.shape)  # expect (25519, 64, 64, 1)
+print("X shape:", X.shape)  # 예측 결과 (25519, 64, 64, 1)
 
 # %% [markdown]
 # ### 4. 라벨 인코딩
-# 'Center' -> 3 (int) -> [0, 0, 0, 1, 0, 0, 0, 0] (one-hot that softmax + categorical_crossentropy requires)
-# one-hot: just a vector
-# softmax throws 8 possibilities and categorial_crossentropy compares them with one-hot.
+# Center의 경우 단순 int인 3이었는데 이를 Softmax와 categorical_crossentropy가 요구하는 one-hot 벡터인 [0, 0, 0, 1, 0, 0, 0, 0]으로 변환.
+# Softmax는 8개 불량 타입의 확률을 내뱉고, categorial_crossentropy는 이를 one-hot과 비교한다.
 
 # %%
 from sklearn.preprocessing import LabelEncoder
 
 le = LabelEncoder()
-y_int = le.fit_transform(labeled["fail_str"])   # 8 failure classes -> 0, 1, 2, 3, 4, 5, 6, 7                   
-n_classes = len(le.classes_)                    # le.classes_ -> label list (Center, Donut, ..)
-y = np.eye(n_classes, dtype='float32')[y_int]   # 0, 1, 2, 3, 4, 5, 6, 7 -> one-hot
+y_int = le.fit_transform(labeled["fail_str"])   # y_int에 8개 불량 타입을 int형으로 저장. 0, 1, 2, 3, 4, 5, 6, 7.
+n_classes = len(le.classes_)                    # le.classes_ -> 레이블의 리스트 (Center, Donut, ..)
+y = np.eye(n_classes, dtype='float32')[y_int]   # y에 one-hot으로 저장. 1 -> [0, 1, 0, 0, 0, 0, 0, 0]
 
 print("classes:", list(le.classes_))
-print("y_shape:", y.shape)                      # expect (25519, 8)
+print("y_shape:", y.shape)                      # 예측 결과 (25519, 8)
 
 # %% [markdown]
 # ### 5. Train / Val / Test Stratified Split
-# Rare class (e.g., Near-full only got 149 cases) should be kept its class ratio in every split
-# -> that's why we use Stratified Split
+# Near-full과 같은 소수 클래스의 경우에도 그 비율을 유지한 채(=Stratified) Train/Val/Test 데이터셋으로 분할.
 
 # %%
 from sklearn.model_selection import train_test_split
 
-# 1) Split 20% as Test
-# train_test_split -> Split half every inserted arrays.
-# -> We put three arrays (X, y, y_int) and it is splitted into half
-# -> Get 6 variables.
+# train_test_split은 앞 인자 3개를 test_size에 맞춰 각각 분할한다. 고로 결과를 6개에 저장한다.
+
+# 1) 데이터셋의 20%을 Test 데이터셋으로 분할.
 X_trainval, X_test, y_trainval, y_test, yi_trainval, yi_test = train_test_split(
     X, y, y_int, test_size=0.2, stratify=y_int, random_state=42
 )
-
-# 2) Split Train and Val (Val is 20% of trainval)
+# 2) 남은 데이터셋 중 20%를 Val 데이터셋으로 분할.
 X_train, X_val, y_train, y_val, yi_train, yi_val = train_test_split(
     X_trainval, y_trainval, yi_trainval, test_size=0.2, stratify=yi_trainval, random_state=42
 )
@@ -111,37 +109,38 @@ print("train:", X_train.shape[0], "\nval:", X_val.shape[0], "\ntest:", X_test.sh
 
 # %%
 # ### 6. CNN 모델 정의
-# [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
+# 순서: [Conv2D -> Conv2D -> MaxPooling2D] *2 -> Flatten -> Dense -> Dropout -> Dense(softmax)
 
 # %%
 from tensorflow.keras import layers, models
 
 def build_cnn(input_shape, n_classes):
     model = models.Sequential([
-        # Preset: Set the input data type of model
+        # Preset: 입력받을 데이터의 모양을 규정
         layers.Input(shape=input_shape),
-        
-        # Block 1: 3x3 size 32 filters, actication function is relu, output size is same as input size.
-        # Repeat it twice. + 2x2 Pooling (reducing the size)
+
+        # Block 1: Conv2D -> Conv2D -> MaxPooling2D
+        # Conv2D -> 3*3 사이즈 필터 32개, relu 사용, 출력 사이즈는 입력 사이즈와 동일.
+        # MaxPooling2D -> 사이즈 감소.
         layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
         layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
         layers.MaxPooling2D((2, 2)),
 
-        # Block 2: 3x3 size 32 filters, actication function is relu, output size is same as input size.
-        # Repeat it twice. + 2x2 Pooling (reducing the size)
+        # Block 2: Conv2D -> Conv2D -> MaxPooling2D
         layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
         layers.Conv2D(32, (3, 3), activation="relu", padding="same"),
         layers.MaxPooling2D((2, 2)),
 
-        # 2D vector -> 1D vector
+        # Flatten: 2D vector -> 1D vector
         layers.Flatten(),
-        # Connect 1D vector with 128 nodes
-        # Use relu to add non-linearity
+
+        # Dense: Connect 1D vector with 128 nodes, use relu to add non-linearity
         layers.Dense(128, activation="relu"),
-        # Reduce 50% of node (128 -> 64)
+
+        # Dropout: Reduce 50% of node (128 -> 64)
         layers.Dropout(0.5),
-        # Connect 1D vector (with 64 nodes) with n_classes(=8) nodes
-        # Use softmax to make sum as 1
+
+        # Dense: Connect 1D vector (with 64 nodes) with n_classes(=8) nodes, use softmax to make sum as 1
         layers.Dense(n_classes, activation="softmax"),
     ])
 
@@ -157,24 +156,26 @@ model.summary()
 
 # %% [markdown]
 # ### 7. 학습 (class_weight로 불균형 보정)
-# 테스트 데이터도 불균형한 데이터이므로, CNN 학습 시에도 불균형을 보정해서 진행한다.
+# Stratified 분할을 진행했으므로 테스트 데이터도 불균형한 데이터 -> CNN 학습 시에도 불균형을 보정해서 진행.
 
 # %%
 from sklearn.utils.class_weight import compute_class_weight
 from tensorflow.keras.callbacks import EarlyStopping
 
-# "balanced": Higher weight for rarer classes
-# -> prevents model learning on only for major classes
+# balanced: 소수 클래스에 더 큰 가중치를 부여해 CNN 모델이 다수 클래스만 학습하지 않도록 제어.
 weights = compute_class_weight(
     "balanced", classes=np.unique(yi_train), y=yi_train,
 )
-class_weight = dict(enumerate(weights))   # Dictionary-ify the weights: {0: 2.5, 1:0.3, ...}
+class_weight = dict(enumerate(weights))   # Weights를 딕셔너리화 -> {0: 2.5, 1:0.3, ...}
 print(class_weight)
 
-# Stop when val_loss stops improving + give 4 epoch delay on stop + keep the best epoch's weights betweenn all widgets
-early = EarlyStopping(monitor="val_loss", patience=4, restore_best_weights=True)
+# 학습 조기 중단 로직.
+# monitor 대상이 patience에서 설정한 횟수만큼 연속으로 감소하지 못하면 학습을 조기에 중단한다.
+# restore_best_weights: 가장 좋았던 weights를 유지하는 옵션. 기본은 False.
+# 최초에는 val_loss를 모니터하다가 IMG=96으로 변경 후 val_accuracy를 모니터하는 것으로 변경되었다.
+early = EarlyStopping(monitor="val_accuracy", patience=6, restore_best_weights=True)
 
-# Where actual training happens
+# 실제 학습 로직.
 history = model.fit(
     X_train, y_train,
     validation_data=(X_val, y_val),
@@ -183,8 +184,9 @@ history = model.fit(
     class_weight=class_weight,
     callbacks=[early]
 )
+
 # %% [markdown]
-# ### 8. 평가 - per-class F1 + confusion matrix
+# ### 8-a. 평가 - per-class F1 + confusion matrix
 # 7번에서는 학습을 불균형 보정을 통해 진행했다면, 8번에서는 평가 시 불균형 착시를 방지하기 위해
 # 다수 class만 맞춰도 점수가 높앙지는 accuracy 대신
 # 소수 클래스를 실제로 잡았는 지 더 정확히 파악하기 위해 per-class로 확인한다.
@@ -195,28 +197,65 @@ from sklearn.metrics import classification_report, ConfusionMatrixDisplay
 # 사용되지 않은 테스트 데이터(X_test)를 기반으로 CNN 모델이 y값 예측(y_pred)을 진행한다.
 # CNN 모델 정의에서, 마지막에 Softmax를 활용했는데,
 # 그 값 중 가장 큰 값(axis=1)을 y_pred로 규명한다.
-y_pred = model.predict(X_test).argmax(axis=1)
+y_pred = model.predict(X_test, verbose=0).argmax(axis=1)
 
-# 클래스 별 F1 report를 출력한다.
-# 숫자 대신 실제 라벨명(le.classes_)을 활용한다.
-print(classification_report(
-    yi_test,
-    y_pred,
-    target_names=le.classes_,
-    digits=3,
-))
+# 모델이 예측한 결과에 대한 F1 report를 rep에 저장
+rep = classification_report(yi_test, y_pred, target_names=le.classes_, digits=3, output_dict=True)
 
-# Confusion matrix(혼동행렬)를 그려내고 저장한다.
-# 숫자 대신 실제 라벨명(le.classes_)을 활용한다.
-# 행(True Label) 기준 정규화를 진행한다. 각 행의 합이 100%가 되도록.
+# Scratch를 Loc로 오분류한 확률과 Loc을 Scratch로 오분류한 확률을 구함
+sc, lo = le.transform(["Scratch"])[0], le.transform(["Loc"])[0]
+sc_to_lo = np.mean(y_pred[yi_test == sc] == lo)
+lo_to_sc = np.mean(y_pred[yi_test == lo] == sc)
+
+# 출력 층
+print(f"[64] macro F1={rep['macro avg']['f1-score']:.3f} | "
+      f"Scratch F1={rep['Scratch']['f1-score']:.3f} | "
+      f"Loc F1={rep['Loc']['f1-score']:.3f} | "
+      f"Scratch->Loc={sc_to_lo:.1%} | Loc->Scratch={lo_to_sc:.1%}")
+print()
+print(classification_report(yi_test, y_pred, target_names=le.classes_, digits=3))
+
+# IMG=64의 confusion matrix를 저장.
 ConfusionMatrixDisplay.from_predictions(
-    yi_test, y_pred,
-    display_labels=le.classes_,
-    xticks_rotation=45, cmap="Blues",
-    normalize="true", values_format=".0%",
+    yi_test, y_pred, display_labels=le.classes_,
+    xticks_rotation=45, cmap="Blues", normalize="true", values_format=".0%",
 )
 plt.tight_layout()
 plt.savefig("../docs/figures/wafer_cnn_confusion.png", dpi=150, bbox_inches="tight")
+plt.show()
+
+# %% [markdown]
+# ### 8-b. 해상도를 64에서 96으로 올린 뒤 64와 비교
+# Cell 3에서 IMG를 96으로 변경시킨 뒤, Cell 3, 5, 6, 7 재실행 후 이 셀을 실행한다. (IMG=64 결과 파일을 덮어쓰지 않기 위함.)
+# 즉 8-a의 96 버전이라고 보면 된다.
+
+# %%
+# IMG=96 조건으로 다시 모델 예측 진행.
+y_pred96 = model.predict(X_test, verbose=0).argmax(axis=1)
+
+# 모델이 예측한 결과에 대한 F1 report를 rep96에 저장.
+rep96 = classification_report(yi_test, y_pred96, target_names=le.classes_, digits=3, output_dict=True)
+
+# Scratch를 Loc로 오분류한 확률과 Loc을 Scratch로 오분류한 확률을 구함.
+sc, lo = le.transform(["Scratch"])[0], le.transform(["Loc"])[0]
+sc_to_lo = np.mean(y_pred96[yi_test == sc] == lo)
+lo_to_sc = np.mean(y_pred96[yi_test == lo] == sc)
+
+# 출력 층
+print(f"[96] macro F1={rep96['macro avg']['f1-score']:.3f} | "
+      f"Scratch F1={rep96['Scratch']['f1-score']:.3f} | "
+      f"Loc F1={rep96['Loc']['f1-score']:.3f} | "
+      f"Scratch->Loc={sc_to_lo:.1%} | Loc->Scratch={lo_to_sc:.1%}")
+print()
+print(classification_report(yi_test, y_pred96, target_names=le.classes_, digits=3))
+
+# IMG=96의 confusion matrix를 IMG=64의 그것과 별도로 저장.
+ConfusionMatrixDisplay.from_predictions(
+    yi_test, y_pred96, display_labels=le.classes_,
+    xticks_rotation=45, cmap="Blues", normalize="true", values_format=".0%",
+)
+plt.tight_layout()
+plt.savefig("../docs/figures/wafer_cnn_confusion_96.png", dpi=150, bbox_inches="tight")
 plt.show()
 
 # %% [markdown]
