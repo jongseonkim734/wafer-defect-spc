@@ -1,71 +1,73 @@
 # %% [markdown]
-# ### 03 SECOM Baseline
-# #### To make a baseline model of ML for do the defect 예측 분류
+# ### 03 · SECOM Baseline
+# 공정 조건을 기반으로 웨이퍼의 불량 여부를 예측하는 ML 모델의 Baseline을 제작
 
 # %%
-# 1. Read secom data and check quantity and ratio of failure(defect).
+# 1. SECOM 데이터 로드 + Fail의 수량과 비율을 확인
 import pandas as pd
 import numpy as np
 
+# SECOM 데이터 로드
 X = pd.read_csv("../data/secom/secom.data", sep=r"\s+", header=None)
 labels = pd.read_csv("../data/secom/secom_labels.data", sep=r"\s+", header=None)
 
-# Original database -> -1: pass, 1: fail
-# Converted into -> 1: fail, 0: pass
-# lables[0] is label, labels[1] is date and time. So we only use labels[0].
-# btw, y became 1D value by this line.
+# 라벨 변환 (-1이 Pass고 1이 Fail인 것을 0이 Pass고 1이 Fail이 되도록)
+# 참고: labels[0]은 라벨, labels[1]은 시간
 y = (labels[0] == 1).astype(int)
 
+# 출력부
 print("X:", X.shape, "| y:", y.shape)
-# print(X.head)
 print(labels.head)
 print("Fail:", int(y.sum()), f"({y.mean()*100:.1f}%)")
 
 # %%
-# 2. Split the train set and test set based on Stratified split.
+# 2. Train 데이터와 Test 데이터로 분할 (Stratified Split)
 from sklearn.model_selection import train_test_split
 
-# Train set 80%. Test set 20%.
-# Enable stratify split.
-# Fix seed to provide repeatablity of code.
+# Train 데이터 80% + Test 데이터 20%
+# Stratified Split을 활용하고 random_state를 사용해 시드를 고정해 반복성을 구현
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, stratify=y, random_state=42)
 
+# 출력부
 print("train:", X_train.shape, "| test:", X_test.shape)
 print("train fail ratio:", round(y_train.mean(), 3), "| test fail ratio:", round(y_test.mean(), 3))
 
 # %%
-# 3. Data pre-processing
+# 3. 데이터 전처리
 from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
-# imputer -> fill NaN with median value.
+# 결측치를 median 값으로 채우는 메소드
+# 평균 0, 표준편차 1로 정규화하는 메소드
 imputer = SimpleImputer(strategy="median")
-# scaler -> standard-ify all features (sensors) with mean=0, var=1.
 scaler = StandardScaler()
 
-# fit_transform -> calculate values (median, mean, std) of original data + transform the original data.
-# transform -> use pre-calculated values to only transform the original data.
-# In our case, we calculate based on train set and implement it into train set AND test set.
+# Train 데이터와 Test 데이터에 imputer와 scaler를 적용
+# fit_transform: 데이터의 평균, 중앙값, 표준편차를 계산하고 적용
+# transform: 이미 계산된 평균, 중앙값, 표준편차를 단순 적용
+# Train 데이터의 평균, 중앙값, 표준편차를 계산해서 이를 Train 데이터와 Test 데이터에 적용
 X_train_p = scaler.fit_transform(imputer.fit_transform(X_train))
 X_test_p = scaler.transform(imputer.transform(X_test))
 
+# 출력부
 print("Pre-processing completed:", X_train_p.shape, X_test_p.shape)
 
 # %%
-# 4. Model Learning
-# The baseline is logistic regression
+# 4. 모델 정의, 학습, 예측
+# Baseline은 로지스틱 회귀
 from sklearn.linear_model import LogisticRegression
 
-# model defining. 1000 iteration + up-weight to rare fail classes as there are so less (~6%) failures.
+# 모델 정의
 model = LogisticRegression(max_iter=1000, class_weight="balanced", random_state=42)
 
-# model fitting
+# 모델 학습
 model.fit(X_train_p, y_train)
 
+# 모델 예측
 y_pred = model.predict(X_test_p)
 
 # %%
-# 5. Model Evaluation (confusion_matrix and F1/recall)
+# 5. 모델 평가 (confusion_matrix and F1/recall)
 from sklearn.metrics import confusion_matrix, classification_report
 
 # Confusion matrix shows True Negative, False Positive, False Negative, True Positive.
