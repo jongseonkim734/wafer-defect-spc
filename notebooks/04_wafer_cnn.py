@@ -514,4 +514,93 @@ plt.tight_layout()
 plt.savefig(f"../docs/figures/wafer_{selected_feature_text}.png", dpi=150, bbox_inches="tight")
 plt.show()
 
+# %% [markdown]
+# ### 15. 원본 해상도 + 연결요소 기반 형태 피처
+# 셀 14의 피처 탐색은 64x64 축소본에서 계산했고, 웨이퍼의 모든 결함 픽셀을 한 덩어리로 뭉쳐 계산했다.
+# 즉, 축소본이라 Scratch 선이 이미 끊겨 있을 수 있는데, 산발 결함(노이즈)까지 섞이게 되는 결과를 낳았다.
+# 이번에는 리사이즈 하지 않은 원본 웨이퍼맵에서 결함 픽셀을 연결 요소 마다마다로 분리한 뒤, 가장 길쭉한 성분 하나의 형태만 잰다.
+# 실험 목적: 형태가 안 갈리는 것이 리사이즈 축소 탓인지, 데이터 자체의 성질인지 가른다.
+
+# %%
+from skimage.measure import label as cc_label, regionprops
+
+# 10픽셀 미만 성분은 판단에서 제외
+MIN_AREA = 10
+
+# 원본 웨이퍼맵 한 장에서, 가장 긴 연결요소의 형태 지표를 반환
+def shape_of_longest(wafer_map):
+    map = np.asarray(wafer_map)
+    mask = (map == 2)   # 불량 픽셀만 마스킹
+    if mask.sum() < MIN_AREA:
+        return None
+
+    lab = cc_label(mask, connectivity=2)    # connectivity=2: 4이웃이 아니라 8이웃. 스크래치가 대각선 궤적인 경우까지 고려
+    wafer_scale = max(map.shape)              # 웨이퍼 크기가 제각각이라 길이를 정규화.
+
+    best = None
+    for r in regionprops(lab):
+        if r.area < MIN_AREA:
+            continue
+
+        major = r.axis_major_length if hasattr(r, "axis_major_length") else r.major_axis_length
+        minor = r.axis_minor_length if hasattr(r, "axis_minor_length") else r.minor_axis_length
+        minor = max(minor, 1.0)
+        
+        if best is None or major > best["length"]:
+            best = {
+                "aspect": major / minor,
+                "length": major,
+                "rel_length": major / wafer_scale,
+                "ecc": r.eccentricity,
+                "area": r.area,
+            }
+
+    return best
+
+# 원본 웨이퍼맵 전체에 대한 계산 (리사이즈가 진행되지 않은 원본 데이터)
+rows = []
+for wafer_map, cls in zip(labeled["waferMap"], labeled["fail_str"]):
+    s = shape_of_longest(wafer_map)
+    if s is not None:
+        rows.append({"class": cls, **s})
+
+shape_df = pd.DataFrame(rows)
+print("형태 계산 완료:", len(shape_df), "장 /", len(labeled), "장\n")
+
+# 클래스별 중앙값 비교 (평균은 이상치에 흔들리므로 중앙값 사용)
+order = list(le.classes_)
+print(shape_df.groupby("class")[["aspect", "rel_length", "ecc", "area"]].median().reindex(order))
+
+# %% [markdown]
+# ### 16. Scratch vs Loc 분리력 정량화
+# 중앙값이 벌어진 것만으로는 부족하다. 종횡비 하나만으로 두 클래스를 실제로 가를 수 있는지 확인한다.
+
+# %%
+from sklearn.metrics import f1_score
+
+pair = shape_df[shape_df["class"].isin(["Scratch", "Loc"])].copy()
+y_true = (pair["class"] == "Scratch").astype(int)      # Scratch=1, Loc=0
+
+# 종횡비 단일 임계값만으로 얼마나 갈리는지 확인 (해석 가능한 가장 단순한 규칙)
+best_th, best_f1 = None, -1
+for th in np.arange(1.0, 10.0, 0.1):
+    f1 = f1_score(y_true, (pair["aspect"] > th).astype(int))
+    if f1 > best_f1:
+        best_th, best_f1 = th, f1
+
+print(f"대상: Scratch {int(y_true.sum())}장 / Loc {int((1-y_true).sum())}장")
+print(f"종횡비 단일 임계값 {best_th:.1f} -> Scratch F1 {best_f1:.3f}")
+print("(참고: 64x64 CNN의 Scratch F1 = 0.568. 단 8클래스 vs 2클래스라 직접 비교는 아님)\n")
+print(pair.groupby("class")["aspect"].describe()[["25%", "50%", "75%"]])
+
+fig, ax = plt.subplots(figsize=(7, 4))
+ax.boxplot([pair[pair["class"] == c]["aspect"].values for c in ["Loc", "Scratch"]],
+           tick_labels=["Loc", "Scratch"], showfliers=False)
+ax.axhline(best_th, color="red", ls="--", lw=1, label=f"threshold = {best_th:.1f}")
+ax.set_ylabel("aspect ratio (original resolution)")
+ax.set_title("Scratch vs Loc separability at original resolution")
+ax.legend()
+plt.tight_layout()
+plt.savefig("../docs/figures/wafer_shape_original_res.png", dpi=150, bbox_inches="tight")
+plt.show()
 # %%
