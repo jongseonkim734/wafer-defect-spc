@@ -15,3 +15,6 @@ __pycache__/
 *.h5
 *.keras
 *.pkl
+
+# 오래된 파일
+/dumps/
