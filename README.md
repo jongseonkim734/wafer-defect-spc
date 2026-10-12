@@ -13,7 +13,7 @@
 
 #### 1. SECOM - 불량 유효인자 선별로 재현율 개선
 
-<img src="ocs/figures/secom_feature_k_sweep.png" alt="k-sweep: 피처 수(k) vs fail F1/recall" width="400">
+<img src="docs/figures/secom_feature_k_sweep.png" alt="k-sweep: 피처 수(k) vs fail F1/recall" width="300">
 
 
 | 모델               | 인자 수 | fail F1 | fail recall | 비고                         |
