@@ -13,7 +13,7 @@
 
 #### 1. SECOM - 불량 유효인자 선별로 재현율 개선
 
-![k-sweep: 피처 수(k) vs fail F1/recall](docs/figures/secom_feature_k_sweep.png)
+<img src="ocs/figures/secom_feature_k_sweep.png" alt="k-sweep: 피처 수(k) vs fail F1/recall" width="400">
 
 
 | 모델               | 인자 수 | fail F1 | fail recall | 비고                         |
@@ -29,7 +29,7 @@
 
 #### 2. SECOM - X-bar / R 구현 및 이탈점 검출
 
-![X-bar chart & R chart](docs/figures/xbar_and_r_chart.png)
+<img src="docs/figures/xbar_and_r_chart.png" alt="X-bar chart & R chart" width="400">
 
 - Subgroup은 연속 5개 샘플로 잡았으나, SECOM 데이터셋이 단일 공정의 균일 시계열이 아니라 한계가 있음
 
@@ -39,7 +39,7 @@
 
 #### 3. SECOM - 공정 이상의 원인 인자 진단
 
-![SECOM 원인 인자 진단 (Lot 2 / 10 / 14)](docs/figures/secom_fdc_diagnosis.png)
+<img src="docs/figures/secom_fdc_diagnosis.png" alt="SECOM 원인 인자 진단 (Lot 2 / 10 / 14)" width="400">
 
 - 정상 Lot으로 인자마다 평균과 표준편차를 정의
 - 이를 기반으로 z-score를 규정 (X-avg/sigma)
@@ -78,7 +78,7 @@
 
 #### 5. WM-811K - Scratch 오분류의 물리적 해석
 
-![WM-811K CNN confusion matrix (행 정규화)](docs/figures/wafer_cnn_confusion.png)
+<img src="docs/figures/wafer_cnn_confusion.png" alt="WM-811K CNN confusion matrix (행 정규화)" width="400">
 
 - Scratch의 약 33%가 Loc로 오분류. Scratch와 Loc이 공간적으로 유사한 패턴이라는 점이 원인이라고 추정
 
@@ -88,7 +88,7 @@
 
 #### 6. WM-811K - 모델의 판단 근거 시각화
 
-![WM-811K CNN Grad-CAM (Scratch→Loc 오분류)](docs/figures/wafer_cnn_gradcam.png)
+<img src="docs/figures/wafer_cnn_gradcam.png" alt="WM-811K CNN Grad-CAM (Scratch→Loc 오분류)" height="400">
 
 - Grad-CAM 활용
 - Scratch -> Loc 오분류 사례에 대해 실제 스크래치 궤적을 보고 있으나 이를 Loc으로 오인 것으로 보임
@@ -114,7 +114,7 @@
 
 #### 8. WM-811K - 원본 해상도 사용 및 결함 픽셀 연결요소 분리로 Scratch와 Loc 분리 성공
 
-![원본 해상도에서의 Scratch vs Loc 분리력](docs/figures/wafer_shape_original_res.png)
+<img src="docs/figures/wafer_shape_original_res.png" alt="원본 해상도에서의 Scratch vs Loc 분리력" width="400">
 
 - 앞선 세 개선 실험은 모두 축소된 이미지 해상도 상에서의 접근이었음
 - 리사이즈하지 않은 원본 웨이퍼맵을 활용하고, 결함 픽셀을 연결요소들로 분리한 뒤 가장 긴 성분의 종횡비를 측정하는 방식 채택
